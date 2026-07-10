@@ -11,9 +11,6 @@ resources:
 
   - placements/placement-aws-dev.yaml
   - placements/placement-aws-prod.yaml
-  - placements/placement-east.yaml
-  - placements/placement-west.yaml
 
   - policies/baseline
-  - policies/console-banners
   - policysets/policyset-baseline.yaml
