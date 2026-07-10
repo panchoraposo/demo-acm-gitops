@@ -104,6 +104,18 @@ The same app is deployed, but policies make network behavior different:
 - `east`: **frontend → backend allowed**
 - `west`: **frontend → backend denied** (deny-ingress + allow-same-namespace)
 
+Get the public URLs (OpenShift Routes):
+
+```bash
+echo -n "EAST URL: " && oc --context east -n frontend get route frontend -o jsonpath='https://{.spec.host}{"\n"}'
+echo -n "WEST URL: " && oc --context west -n frontend get route frontend -o jsonpath='https://{.spec.host}{"\n"}'
+```
+
+Open both URLs in a browser:
+
+- On **east** you should see `backend: reachable`
+- On **west** you should see `backend: BLOCKED/UNREACHABLE`
+
 Wait for pods:
 
 ```bash
@@ -189,7 +201,7 @@ oc --context acm -n openshift-gitops get applications.argoproj.io acm-governance
 
 Expected:
 - Sync status becomes `Synced`
-- Health may reflect policy compliance (it can show `Degraded` while a policy is `NonCompliant`)
+- Health can optionally ignore ACM policy compliance (recommended for demos to keep the GitOps app green)
 
 ## 6) Observe ACM compliance/remediation in east
 
