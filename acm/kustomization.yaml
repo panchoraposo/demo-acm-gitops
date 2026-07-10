@@ -4,13 +4,13 @@ kind: Kustomization
 resources:
   - namespaces/open-cluster-management-policies.yaml
 
-  - clustersets/aws-dev.yaml
-  - clustersets/aws-prod.yaml
-  - clustersets/bindings/aws-dev-binding.yaml
-  - clustersets/bindings/aws-prod-binding.yaml
+  - clustersets/east.yaml
+  - clustersets/west.yaml
+  - clustersets/bindings/east-binding.yaml
+  - clustersets/bindings/west-binding.yaml
 
-  - placements/placement-aws-dev.yaml
-  - placements/placement-aws-prod.yaml
+  - placements/placement-east.yaml
+  - placements/placement-west.yaml
 
   - policies/baseline
   - policysets/policyset-baseline.yaml

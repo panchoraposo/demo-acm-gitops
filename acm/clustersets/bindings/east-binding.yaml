@@ -1,7 +1,8 @@
 apiVersion: cluster.open-cluster-management.io/v1beta2
 kind: ManagedClusterSetBinding
 metadata:
-  name: aws-dev
+  name: east
   namespace: open-cluster-management-policies
 spec:
-  clusterSet: aws-dev
+  clusterSet: east
+

@@ -9,8 +9,8 @@ Demo repository to show the value of using **Red Hat Advanced Cluster Management
 
 With two AWS managed clusters (for example `east` and `west`):
 
-- `east` (dev): policies run in **inform** mode (report only).
-- `west` (prod): policies run in **enforce** mode (auto-remediate).
+- `east`: policies run in **inform** mode (report only).
+- `west`: policies run in **enforce** mode (auto-remediate).
 
 The infrastructure team should be able to see:
 
@@ -41,33 +41,33 @@ oc --context acm apply -k bootstrap/gitops-operator
 oc --context acm apply -k bootstrap/argocd-app
 ```
 
-## Set targeting (dev/prod)
+## Set targeting (east/west)
 
 Assign clusters to cluster sets:
 
 ```bash
-oc --context acm label managedcluster east cluster.open-cluster-management.io/clusterset=aws-dev --overwrite
-oc --context acm label managedcluster west cluster.open-cluster-management.io/clusterset=aws-prod --overwrite
+oc --context acm label managedcluster east cluster.open-cluster-management.io/clusterset=east --overwrite
+oc --context acm label managedcluster west cluster.open-cluster-management.io/clusterset=west --overwrite
 ```
 
 ## What gets synced from Git
 
 ArgoCD syncs `acm/`, which creates:
 
-- `ManagedClusterSet`: `aws-dev`, `aws-prod`
+- `ManagedClusterSet`: `east`, `west`
 - `ManagedClusterSetBinding` in `open-cluster-management-policies`
 - `Placement` resources for targeting
 - Policies:
-  - `policy-baseline-dev` (inform)
-  - `policy-baseline-prod` (enforce)
+  - `policy-baseline-east` (inform)
+  - `policy-baseline-west` (enforce)
 
 ## Suggested demo script (10–15 min)
 
 1) Show the repo path `acm/policies/baseline/`.
 2) In the ArgoCD UI, show the app is **Synced/Healthy**.
-3) In ACM → Governance, show compliance by cluster (dev vs prod).
+3) In ACM → Governance, show compliance by cluster (east vs west).
 4) Make a small Git change:
-   - switch `policy-baseline-dev` to `enforce` (or change a required object)
+   - switch `policy-baseline-east` to `enforce` (or change a required object)
 5) ArgoCD reconciles and ACM reflects the new compliance/remediation.
 
 ## Quick troubleshooting

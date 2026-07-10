@@ -1,7 +1,7 @@
 apiVersion: policy.open-cluster-management.io/v1
 kind: Policy
 metadata:
-  name: policy-baseline-dev
+  name: policy-baseline-east
   namespace: open-cluster-management-policies
   annotations:
     policy.open-cluster-management.io/categories: CM Configuration Management
@@ -15,7 +15,7 @@ spec:
         apiVersion: policy.open-cluster-management.io/v1
         kind: ConfigurationPolicy
         metadata:
-          name: baseline-dev-namespace
+          name: baseline-east-namespace
         spec:
           remediationAction: inform
           severity: low
@@ -28,12 +28,12 @@ spec:
                   name: demo-infra
                   labels:
                     owner: platform
-                    env: dev
+                    cluster: east
     - objectDefinition:
         apiVersion: policy.open-cluster-management.io/v1
         kind: ConfigurationPolicy
         metadata:
-          name: baseline-dev-resourcequota
+          name: baseline-east-resourcequota
         spec:
           remediationAction: inform
           severity: low
@@ -56,7 +56,7 @@ spec:
         apiVersion: policy.open-cluster-management.io/v1
         kind: ConfigurationPolicy
         metadata:
-          name: baseline-dev-limitrange
+          name: baseline-east-limitrange
         spec:
           remediationAction: inform
           severity: low
@@ -81,7 +81,7 @@ spec:
         apiVersion: policy.open-cluster-management.io/v1
         kind: ConfigurationPolicy
         metadata:
-          name: baseline-dev-networkpolicies
+          name: baseline-east-networkpolicies
         spec:
           remediationAction: inform
           severity: low
@@ -115,7 +115,7 @@ spec:
         apiVersion: policy.open-cluster-management.io/v1
         kind: ConfigurationPolicy
         metadata:
-          name: baseline-dev-rbac
+          name: baseline-east-rbac
         spec:
           remediationAction: inform
           severity: low
@@ -135,3 +135,4 @@ spec:
                   - kind: Group
                     apiGroup: rbac.authorization.k8s.io
                     name: demo-infra-admins
+
