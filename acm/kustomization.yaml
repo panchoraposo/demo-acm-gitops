@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespaces/open-cluster-management-policies.yaml
+
+  - clustersets/aws-dev.yaml
+  - clustersets/aws-prod.yaml
+  - clustersets/bindings/aws-dev-binding.yaml
+  - clustersets/bindings/aws-prod-binding.yaml
+
+  - placements/placement-aws-dev.yaml
+  - placements/placement-aws-prod.yaml
+  - placements/placement-east.yaml
+  - placements/placement-west.yaml
+
+  - policies/baseline
+  - policies/console-banners
+  - policysets/policyset-baseline.yaml

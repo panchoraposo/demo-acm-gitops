@@ -1,0 +1,30 @@
+apiVersion: policy.open-cluster-management.io/v1
+kind: Policy
+metadata:
+  name: policy-console-banner-east
+  namespace: open-cluster-management-policies
+spec:
+  remediationAction: enforce
+  disabled: false
+  policy-templates:
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: console-banner-east
+        spec:
+          remediationAction: enforce
+          severity: low
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: console.openshift.io/v1
+                kind: ConsoleNotification
+                metadata:
+                  name: demo-cluster-banner
+                spec:
+                  location: BannerTop
+                  text: "East Cluster"
+                  color: "#FFFFFF"
+                  backgroundColor: "#0B7285"
+

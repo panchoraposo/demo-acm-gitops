@@ -1,0 +1,137 @@
+apiVersion: policy.open-cluster-management.io/v1
+kind: Policy
+metadata:
+  name: policy-baseline-dev
+  namespace: open-cluster-management-policies
+  annotations:
+    policy.open-cluster-management.io/categories: CM Configuration Management
+    policy.open-cluster-management.io/standards: NIST
+    policy.open-cluster-management.io/controls: CM-2 Baseline Configuration
+spec:
+  remediationAction: inform
+  disabled: false
+  policy-templates:
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: baseline-dev-namespace
+        spec:
+          remediationAction: inform
+          severity: low
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: v1
+                kind: Namespace
+                metadata:
+                  name: demo-infra
+                  labels:
+                    owner: platform
+                    env: dev
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: baseline-dev-resourcequota
+        spec:
+          remediationAction: inform
+          severity: low
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: v1
+                kind: ResourceQuota
+                metadata:
+                  name: demo-infra-quota
+                  namespace: demo-infra
+                spec:
+                  hard:
+                    pods: "50"
+                    requests.cpu: "10"
+                    requests.memory: 10Gi
+                    limits.cpu: "20"
+                    limits.memory: 20Gi
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: baseline-dev-limitrange
+        spec:
+          remediationAction: inform
+          severity: low
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: v1
+                kind: LimitRange
+                metadata:
+                  name: demo-infra-limits
+                  namespace: demo-infra
+                spec:
+                  limits:
+                    - type: Container
+                      default:
+                        cpu: 500m
+                        memory: 512Mi
+                      defaultRequest:
+                        cpu: 100m
+                        memory: 128Mi
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: baseline-dev-networkpolicies
+        spec:
+          remediationAction: inform
+          severity: low
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: networking.k8s.io/v1
+                kind: NetworkPolicy
+                metadata:
+                  name: default-deny-ingress
+                  namespace: demo-infra
+                spec:
+                  podSelector: {}
+                  policyTypes:
+                    - Ingress
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: networking.k8s.io/v1
+                kind: NetworkPolicy
+                metadata:
+                  name: allow-same-namespace
+                  namespace: demo-infra
+                spec:
+                  podSelector: {}
+                  policyTypes:
+                    - Ingress
+                  ingress:
+                    - from:
+                        - podSelector: {}
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: baseline-dev-rbac
+        spec:
+          remediationAction: inform
+          severity: low
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: rbac.authorization.k8s.io/v1
+                kind: RoleBinding
+                metadata:
+                  name: demo-infra-admins
+                  namespace: demo-infra
+                roleRef:
+                  apiGroup: rbac.authorization.k8s.io
+                  kind: ClusterRole
+                  name: admin
+                subjects:
+                  - kind: Group
+                    apiGroup: rbac.authorization.k8s.io
+                    name: demo-infra-admins

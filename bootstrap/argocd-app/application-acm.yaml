@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: acm-governance
+  namespace: openshift-gitops
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/panchoraposo/demo-acm-gitops.git
+    targetRevision: main
+    path: acm
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: open-cluster-management-policies
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true
+
