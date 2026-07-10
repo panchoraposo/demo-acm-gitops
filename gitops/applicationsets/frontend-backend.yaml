@@ -9,11 +9,11 @@ spec:
         elements:
           - name: east
             server: https://api.cluster-nz4w6.nz4w6.sandbox81.opentlc.com:6443
-            path: apps/frontend-backend/overlays/bad-latest
+            path: apps/frontend-backend/overlays/east
             title: "East Cluster"
           - name: west
             server: https://api.cluster-lcj9j.lcj9j.sandbox5226.opentlc.com:6443
-            path: apps/frontend-backend/overlays/bad-latest
+            path: apps/frontend-backend/overlays/west
             title: "West Cluster"
   template:
     metadata:
