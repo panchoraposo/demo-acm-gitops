@@ -17,162 +17,59 @@ spec:
         app.kubernetes.io/name: frontend
         app.kubernetes.io/part-of: demo-fb
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
-        - name: frontend
-          image: registry.access.redhat.com/ubi9/python-312:1
+        - name: nginx
+          image: registry.access.redhat.com/ubi9/nginx-124:1
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
               containerPort: 8080
-          env:
-            - name: BACKEND_URL
-              value: "http://backend.backend.svc:8080/"
-          command:
-            - python
-            - -c
-            - |
-              import os
-              import urllib.request
-              import html
-              import time
-              import textwrap
-              from http.server import BaseHTTPRequestHandler, HTTPServer
-
-              backend = os.environ.get("BACKEND_URL", "http://backend.backend.svc:8080/")
-              title = os.environ.get("TITLE", "Frontend / Backend Demo")
-
-              class H(BaseHTTPRequestHandler):
-                  def do_GET(self):
-                      try:
-                          with urllib.request.urlopen(backend, timeout=2) as r:
-                              body = r.read(200)
-                          backend_state = "reachable"
-                          backend_ok = True
-                          backend_detail = body.decode("utf-8", errors="ignore")
-                      except Exception as e:
-                          backend_state = "blocked"
-                          backend_ok = False
-                          backend_detail = str(e)
-
-                      status_code = 200 if backend_ok else 503
-                      badge = "#2f9e44" if backend_ok else "#e03131"
-                      card = "#1f2937"
-                      bg = "#0b1020"
-                      fg = "#e5e7eb"
-                      muted = "#9ca3af"
-
-                      now = time.strftime("%Y-%m-%d %H:%M:%S %Z", time.localtime())
-                      safe_detail = html.escape(backend_detail)[:1200]
-                      safe_backend = html.escape(backend)
-
-                      page = textwrap.dedent(f"""\
-                      <!doctype html>
-                      <html lang="en">
-                      <head>
-                        <meta charset="utf-8" />
-                        <meta name="viewport" content="width=device-width, initial-scale=1" />
-                        <title>{html.escape(title)}</title>
-                        <style>
-                          :root {{
-                            color-scheme: dark;
-                            --bg: {bg};
-                            --card: {card};
-                            --fg: {fg};
-                            --muted: {muted};
-                            --badge: {badge};
-                          }}
-                          body {{
-                            margin: 0;
-                            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-                            background: radial-gradient(1200px 600px at 20% 10%, #1b2a6a33, transparent 60%),
-                                        radial-gradient(1200px 600px at 90% 20%, #a61e4d26, transparent 60%),
-                                        var(--bg);
-                            color: var(--fg);
-                          }}
-                          .wrap {{ max-width: 980px; margin: 0 auto; padding: 48px 20px; }}
-                          .top {{ display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }}
-                          h1 {{ font-size: 28px; margin: 0; letter-spacing: .2px; }}
-                          .sub {{ color: var(--muted); margin-top: 6px; }}
-                          .pill {{
-                            display:inline-flex; align-items:center; gap:10px;
-                            padding: 10px 14px; border-radius: 999px;
-                            background: #111827cc; border: 1px solid #374151;
-                            font-weight: 600;
-                          }}
-                          .dot {{ width: 10px; height: 10px; border-radius: 50%; background: var(--badge); }}
-                          .grid {{ display:grid; grid-template-columns: 1fr; gap: 16px; margin-top: 22px; }}
-                          @media (min-width: 860px) {{ .grid {{ grid-template-columns: 1.4fr .6fr; }} }}
-                          .card {{
-                            background: linear-gradient(180deg, #111827cc, #0b1224cc);
-                            border: 1px solid #243045;
-                            border-radius: 16px;
-                            padding: 18px;
-                            box-shadow: 0 20px 60px rgba(0,0,0,.35);
-                          }}
-                          .k {{ color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .14em; }}
-                          .v {{ font-size: 14px; margin-top: 6px; word-break: break-word; }}
-                          pre {{
-                            margin: 12px 0 0; padding: 14px; border-radius: 12px;
-                            background: #060a14; border: 1px solid #1f2a40;
-                            overflow:auto; line-height: 1.4;
-                          }}
-                          .btn {{
-                            display:inline-block; padding: 10px 14px; border-radius: 12px;
-                            border: 1px solid #334155; background: #0b1224;
-                            color: var(--fg); text-decoration:none; font-weight: 600;
-                          }}
-                        </style>
-                      </head>
-                      <body>
-                        <div class="wrap">
-                          <div class="top">
-                            <div>
-                              <h1>{html.escape(title)}</h1>
-                              <div class="sub">This page is rendered by the <b>frontend</b> pod and attempts a call to <b>backend</b>.</div>
-                            </div>
-                            <div class="pill" title="Backend connectivity">
-                              <span class="dot"></span>
-                              <span>backend {backend_state}</span>
-                            </div>
-                          </div>
-
-                          <div class="grid">
-                            <div class="card">
-                              <div class="k">Backend URL</div>
-                              <div class="v">{safe_backend}</div>
-                              <div class="k" style="margin-top:14px;">Backend response / error</div>
-                              <pre>{safe_detail}</pre>
-                            </div>
-
-                            <div class="card">
-                              <div class="k">Timestamp</div>
-                              <div class="v">{html.escape(now)}</div>
-                              <div class="k" style="margin-top:14px;">What to expect</div>
-                              <div class="v">
-                                <div>- <b>east</b>: frontend → backend allowed</div>
-                                <div>- <b>west</b>: frontend → backend blocked (NetworkPolicy)</div>
-                              </div>
-                              <div style="margin-top:16px;">
-                                <a class="btn" href="/">Refresh</a>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </body>
-                      </html>
-                      """)
-
-                      self.send_response(status_code)
-                      self.send_header("Content-Type", "text/html; charset=utf-8")
-                      self.send_header("Cache-Control", "no-store")
-                      self.end_headers()
-                      self.wfile.write(page.encode("utf-8"))
-
-                  def log_message(self, fmt, *args):
-                      return
-
-              HTTPServer(("0.0.0.0", 8080), H).serve_forever()
+          volumeMounts:
+            - name: site
+              mountPath: /opt/app-root/src/index.html
+              subPath: index.html
+              readOnly: true
+            - name: nginx-conf
+              mountPath: /opt/app-root/etc/nginx.d/default.conf
+              subPath: default.conf
+              readOnly: true
           securityContext:
             allowPrivilegeEscalation: false
+            runAsNonRoot: true
             capabilities:
               drop: ["ALL"]
+        - name: checker
+          image: registry.access.redhat.com/ubi9/python-312:1
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: CLUSTER_NAME
+              value: "unknown"
+            - name: BACKEND_URL
+              value: "http://backend.backend.svc:8080/"
+          command: ["python", "/opt/checker/checker.py"]
+          ports:
+            - name: api
+              containerPort: 9000
+          volumeMounts:
+            - name: checker
+              mountPath: /opt/checker/checker.py
+              subPath: checker.py
+              readOnly: true
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+      volumes:
+        - name: site
+          configMap:
+            name: frontend-site
+        - name: nginx-conf
+          configMap:
+            name: frontend-nginx-conf
+        - name: checker
+          configMap:
+            name: frontend-checker

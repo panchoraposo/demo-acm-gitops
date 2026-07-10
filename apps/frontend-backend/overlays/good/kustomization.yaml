@@ -4,6 +4,3 @@ kind: Kustomization
 resources:
   - ../../base
 
-patches:
-  - path: patch-title.yaml
-

@@ -4,7 +4,6 @@ kind: Kustomization
 resources:
   - ../../base
 
-images:
-  - name: registry.access.redhat.com/ubi9/nginx-124
-    newTag: latest
+patches:
+  - path: patch-cluster.yaml
 
