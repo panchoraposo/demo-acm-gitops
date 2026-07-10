@@ -158,4 +158,19 @@ spec:
                   ingress:
                     - from:
                         - podSelector: {}
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: networking.k8s.io/v1
+                kind: NetworkPolicy
+                metadata:
+                  name: allow-from-openshift-ingress
+                  namespace: frontend
+                spec:
+                  podSelector: {}
+                  policyTypes: [Ingress]
+                  ingress:
+                    - from:
+                        - namespaceSelector:
+                            matchLabels:
+                              kubernetes.io/metadata.name: openshift-ingress
 
