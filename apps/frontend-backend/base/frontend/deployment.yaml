@@ -21,7 +21,52 @@ spec:
         - name: frontend
           image: registry.access.redhat.com/ubi9/python-312:1
           imagePullPolicy: IfNotPresent
-          command: ["python", "-c", "import time; time.sleep(3600)"]
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: BACKEND_URL
+              value: "http://backend.backend.svc:8080/"
+          command:
+            - python
+            - -c
+            - |
+              import os
+              import urllib.request
+              from http.server import BaseHTTPRequestHandler, HTTPServer
+
+              backend = os.environ.get("BACKEND_URL", "http://backend.backend.svc:8080/")
+
+              class H(BaseHTTPRequestHandler):
+                  def do_GET(self):
+                      try:
+                          with urllib.request.urlopen(backend, timeout=2) as r:
+                              body = r.read(200)
+                          msg = (
+                              "frontend: OK\n"
+                              f"backend: reachable ({backend})\n\n"
+                              + body.decode("utf-8", errors="ignore")
+                              + "\n"
+                          )
+                          self.send_response(200)
+                          self.send_header("Content-Type", "text/plain; charset=utf-8")
+                          self.end_headers()
+                          self.wfile.write(msg.encode("utf-8"))
+                      except Exception as e:
+                          msg = (
+                              "frontend: OK\n"
+                              f"backend: BLOCKED/UNREACHABLE ({backend})\n"
+                              f"error: {e}\n"
+                          )
+                          self.send_response(503)
+                          self.send_header("Content-Type", "text/plain; charset=utf-8")
+                          self.end_headers()
+                          self.wfile.write(msg.encode("utf-8"))
+
+                  def log_message(self, fmt, *args):
+                      return
+
+              HTTPServer(("0.0.0.0", 8080), H).serve_forever()
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
