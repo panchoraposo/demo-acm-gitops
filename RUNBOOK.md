@@ -116,6 +116,17 @@ Open both URLs in a browser:
 - On **east** you should see `backend: reachable`
 - On **west** you should see `backend: BLOCKED/UNREACHABLE`
 
+Important note (Route reachability):
+
+- Since `frontend` uses **default-deny ingress**, you must allow traffic from the OpenShift router namespace.
+- This demo includes `NetworkPolicy/allow-from-openshift-ingress` in `frontend` to permit traffic from `openshift-ingress`.
+- If the Route times out, confirm the policy exists:
+
+```bash
+oc --context east -n frontend get networkpolicy allow-from-openshift-ingress
+oc --context west -n frontend get networkpolicy allow-from-openshift-ingress
+```
+
 Wait for pods:
 
 ```bash

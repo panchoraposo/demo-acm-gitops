@@ -9,8 +9,12 @@ spec:
         elements:
           - name: east
             server: https://api.cluster-nz4w6.nz4w6.sandbox81.opentlc.com:6443
+            path: apps/frontend-backend/overlays/good
+            title: "East Cluster"
           - name: west
             server: https://api.cluster-lcj9j.lcj9j.sandbox5226.opentlc.com:6443
+            path: apps/frontend-backend/overlays/good
+            title: "West Cluster"
   template:
     metadata:
       name: 'fb-{{name}}'
@@ -19,7 +23,7 @@ spec:
       source:
         repoURL: https://github.com/panchoraposo/demo-acm-gitops.git
         targetRevision: main
-        path: apps/frontend-backend/overlays/good
+        path: '{{path}}'
       destination:
         server: '{{server}}'
         namespace: frontend
