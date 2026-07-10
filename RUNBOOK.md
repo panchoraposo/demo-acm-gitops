@@ -113,8 +113,8 @@ echo -n "WEST URL: " && oc --context west -n frontend get route frontend -o json
 
 Open both URLs in a browser:
 
-- On **east** you should see `backend: reachable`
-- On **west** you should see `backend: BLOCKED/UNREACHABLE`
+- On **east** the UI shows **backend reachable** and `/api/check` returns `"ok": true`
+- On **west** the UI shows **backend blocked** and `/api/check` returns `"ok": false`
 
 Important note (Route reachability):
 
@@ -125,6 +125,16 @@ Important note (Route reachability):
 ```bash
 oc --context east -n frontend get networkpolicy allow-from-openshift-ingress
 oc --context west -n frontend get networkpolicy allow-from-openshift-ingress
+```
+
+Optional CLI verification (without a browser):
+
+```bash
+EAST_HOST=$(oc --context east -n frontend get route frontend -o jsonpath='{.spec.host}')
+WEST_HOST=$(oc --context west -n frontend get route frontend -o jsonpath='{.spec.host}')
+
+curl -k -s --max-time 10 "https://$EAST_HOST/api/check" | rg -n '"cluster"|"ok"'
+curl -k -s --max-time 10 "https://$WEST_HOST/api/check" | rg -n '"cluster"|"ok"'
 ```
 
 Wait for pods:
@@ -154,11 +164,10 @@ oc --context west -n frontend exec "$POD_WEST" -- \
 
 ### 6.1 Trigger a Git change that deploys a workload using `:latest` (expected to be denied)
 
-Edit `gitops/applicationsets/frontend-backend.yaml` and change:
+Edit `gitops/applicationsets/frontend-backend.yaml` and change both cluster elements:
 
-- `path: apps/frontend-backend/overlays/good`
-to
-- `path: apps/frontend-backend/overlays/bad-latest`
+- `path: apps/frontend-backend/overlays/east` → `path: apps/frontend-backend/overlays/bad-latest`
+- `path: apps/frontend-backend/overlays/west` → `path: apps/frontend-backend/overlays/bad-latest`
 
 Commit + push:
 
@@ -172,12 +181,13 @@ Observe ArgoCD sync errors on `fb-east` / `fb-west` (Denied by admission):
 
 ```bash
 oc --context acm -n openshift-gitops get applications.argoproj.io fb-east fb-west -o wide
-oc --context acm -n openshift-gitops get applications.argoproj.io fb-east -o yaml | rg -n 'Denied|disallow-latest-tag|message:'
+oc --context east -n frontend get rs -l app.kubernetes.io/name=frontend -o name
+oc --context east -n frontend describe rs <ONE_OF_THE_RS> | rg -n 'Denied|disallow-latest-tag|latest|FailedCreate'
 ```
 
 ### 6.2 Fix by switching back to pinned tags
 
-Revert the path back to `overlays/good`, then commit + push:
+Revert the paths back to `overlays/east` and `overlays/west`, then commit + push:
 
 ```bash
 git add gitops/applicationsets/frontend-backend.yaml
