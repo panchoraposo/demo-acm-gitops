@@ -36,6 +36,8 @@ YAML
   # Extract token (do not print to stdout).
   token="$(oc --context "$ctx" -n kube-system get secret argocd-manager-token -o jsonpath='{.data.token}' | base64 -d)"
   server="$(oc --context "$ctx" whoami --show-server)"
+  ca_crt="$(oc --context "$ctx" -n kube-system get configmap kube-root-ca.crt -o jsonpath='{.data.ca\.crt}')"
+  ca_data="$(printf '%s' "$ca_crt" | base64 | tr -d '\n')"
 
   # Create/update ArgoCD cluster secret on the hub.
   tmpdir="$(mktemp -d)"
@@ -57,7 +59,7 @@ stringData:
   name: "$cluster_name"
   server: "$server"
   config: |
-    {"bearerToken":"$token","tlsClientConfig":{"insecure":false}}
+    {"bearerToken":"$token","tlsClientConfig":{"insecure":false,"caData":"$ca_data"}}
 YAML
 
   echo "OK: cluster secret created/updated: $ARGO_NS/cluster-$cluster_name"
