@@ -34,8 +34,8 @@ spec:
               subPath: index.html
               readOnly: true
             - name: nginx-conf
-              mountPath: /opt/app-root/etc/nginx.d/default.conf
-              subPath: default.conf
+              mountPath: /opt/app-root/etc/nginx.default.d/demo.conf
+              subPath: demo.conf
               readOnly: true
           securityContext:
             allowPrivilegeEscalation: false
