@@ -1,0 +1,59 @@
+apiVersion: policy.open-cluster-management.io/v1
+kind: Policy
+metadata:
+  name: policy-no-latest
+  namespace: open-cluster-management-policies
+  annotations:
+    policy.open-cluster-management.io/categories: SC System and Communications Protection
+spec:
+  remediationAction: enforce
+  disabled: false
+  policy-templates:
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: no-latest-validatingadmissionpolicy
+        spec:
+          remediationAction: enforce
+          severity: high
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: admissionregistration.k8s.io/v1
+                kind: ValidatingAdmissionPolicy
+                metadata:
+                  name: disallow-latest-tag
+                spec:
+                  failurePolicy: Fail
+                  matchConstraints:
+                    resourceRules:
+                      - apiGroups: [""]
+                        apiVersions: ["v1"]
+                        operations: ["CREATE", "UPDATE"]
+                        resources: ["pods"]
+                  validations:
+                    - expression: >
+                        !has(object.spec.containers) ||
+                        object.spec.containers.all(c,
+                          c.image.contains("@sha256:") ||
+                          (c.image.matches(".*:.*") && !c.image.endsWith(":latest"))
+                        )
+                      message: "Container images must not use the 'latest' tag (use a pinned tag or digest)."
+                    - expression: >
+                        !has(object.spec.initContainers) ||
+                        object.spec.initContainers.all(c,
+                          c.image.contains("@sha256:") ||
+                          (c.image.matches(".*:.*") && !c.image.endsWith(":latest"))
+                        )
+                      message: "Init container images must not use the 'latest' tag (use a pinned tag or digest)."
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: admissionregistration.k8s.io/v1
+                kind: ValidatingAdmissionPolicyBinding
+                metadata:
+                  name: disallow-latest-tag
+                spec:
+                  policyName: disallow-latest-tag
+                  validationActions: ["Deny"]
+

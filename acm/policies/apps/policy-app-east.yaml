@@ -1,0 +1,163 @@
+apiVersion: policy.open-cluster-management.io/v1
+kind: Policy
+metadata:
+  name: policy-app-east
+  namespace: open-cluster-management-policies
+  annotations:
+    policy.open-cluster-management.io/categories: CM Configuration Management
+spec:
+  remediationAction: enforce
+  disabled: false
+  policy-templates:
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: app-east-namespaces
+        spec:
+          remediationAction: enforce
+          severity: medium
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: v1
+                kind: Namespace
+                metadata:
+                  name: frontend
+                  labels:
+                    app.kubernetes.io/part-of: demo-fb
+                    cluster: east
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: v1
+                kind: Namespace
+                metadata:
+                  name: backend
+                  labels:
+                    app.kubernetes.io/part-of: demo-fb
+                    cluster: east
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: app-east-limits-quotas
+        spec:
+          remediationAction: enforce
+          severity: medium
+          object-templates:
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: v1
+                kind: LimitRange
+                metadata:
+                  name: container-defaults
+                  namespace: frontend
+                spec:
+                  limits:
+                    - type: Container
+                      default:
+                        cpu: 500m
+                        memory: 512Mi
+                      defaultRequest:
+                        cpu: 100m
+                        memory: 128Mi
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: v1
+                kind: LimitRange
+                metadata:
+                  name: container-defaults
+                  namespace: backend
+                spec:
+                  limits:
+                    - type: Container
+                      default:
+                        cpu: 500m
+                        memory: 512Mi
+                      defaultRequest:
+                        cpu: 100m
+                        memory: 128Mi
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: v1
+                kind: ResourceQuota
+                metadata:
+                  name: rq
+                  namespace: frontend
+                spec:
+                  hard:
+                    pods: "20"
+                    requests.cpu: "5"
+                    requests.memory: 5Gi
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: v1
+                kind: ResourceQuota
+                metadata:
+                  name: rq
+                  namespace: backend
+                spec:
+                  hard:
+                    pods: "20"
+                    requests.cpu: "5"
+                    requests.memory: 5Gi
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: app-east-networkpolicies
+        spec:
+          remediationAction: enforce
+          severity: high
+          object-templates:
+            # backend: default deny, allow from frontend namespace only
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: networking.k8s.io/v1
+                kind: NetworkPolicy
+                metadata:
+                  name: default-deny-ingress
+                  namespace: backend
+                spec:
+                  podSelector: {}
+                  policyTypes: [Ingress]
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: networking.k8s.io/v1
+                kind: NetworkPolicy
+                metadata:
+                  name: allow-frontend-to-backend
+                  namespace: backend
+                spec:
+                  podSelector: {}
+                  policyTypes: [Ingress]
+                  ingress:
+                    - from:
+                        - namespaceSelector:
+                            matchLabels:
+                              kubernetes.io/metadata.name: frontend
+            # frontend: default deny, allow same-namespace only (example)
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: networking.k8s.io/v1
+                kind: NetworkPolicy
+                metadata:
+                  name: default-deny-ingress
+                  namespace: frontend
+                spec:
+                  podSelector: {}
+                  policyTypes: [Ingress]
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: networking.k8s.io/v1
+                kind: NetworkPolicy
+                metadata:
+                  name: allow-same-namespace
+                  namespace: frontend
+                spec:
+                  podSelector: {}
+                  policyTypes: [Ingress]
+                  ingress:
+                    - from:
+                        - podSelector: {}
+

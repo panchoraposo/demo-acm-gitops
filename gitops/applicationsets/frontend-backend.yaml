@@ -1,0 +1,33 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: frontend-backend
+  namespace: openshift-gitops
+spec:
+  generators:
+    - list:
+        elements:
+          - name: east
+            server: https://api.cluster-nz4w6.nz4w6.sandbox81.opentlc.com:6443
+          - name: west
+            server: https://api.cluster-lcj9j.lcj9j.sandbox5226.opentlc.com:6443
+  template:
+    metadata:
+      name: 'fb-{{name}}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/panchoraposo/demo-acm-gitops.git
+        targetRevision: main
+        path: apps/frontend-backend/overlays/good
+      destination:
+        server: '{{server}}'
+        namespace: frontend
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ApplyOutOfSyncOnly=true
+

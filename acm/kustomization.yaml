@@ -9,8 +9,11 @@ resources:
   - clustersets/bindings/east-binding.yaml
   - clustersets/bindings/west-binding.yaml
 
+  - placements/placement-all.yaml
   - placements/placement-east.yaml
   - placements/placement-west.yaml
 
   - policies/baseline
+  - policies/apps
+  - policies/image-policy
   - policysets/policyset-baseline.yaml
