@@ -3,6 +3,6 @@ kind: Kustomization
 
 resources:
   - namespace-openshift-gitops-operator.yaml
-  - operatorpolicy-openshift-gitops.yaml
+  - policy-install-openshift-gitops.yaml
   - placement-local-cluster.yaml
   - placementbinding-gitops-operator.yaml
