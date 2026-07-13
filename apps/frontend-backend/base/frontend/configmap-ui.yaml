@@ -26,7 +26,7 @@ data:
         <v-content>
           <section :style="cuddleStyle">
               <v-layout column align-center justify-center class="white--text" style="min-height: 100vh;">
-                <img :src="info.logo" height="350">
+                <img :src="info.logo || '/cuddle.gif'" height="350">
                 <h1 class="white--text mb-2 display-1 text-xs-center">${ info.message }</h1>
                 <div class="subheading mb-2 text-xs-center">Served by <b>${ info.hostname }</b></div>
 
@@ -80,6 +80,7 @@ data:
         },
         created: function() {
           this.getInfo();
+          this.getBackendInfo();
           this.timer = setInterval(this.getInfo, 3000);
         },
         methods: {
@@ -98,6 +99,29 @@ data:
             };
             xhr.send();
           },
+          getBackendInfo: function() {
+            var self = this;
+            return fetch("/api/backendinfo", { method: "GET" })
+              .then(function(resp) {
+                if (!resp) return;
+                if (!resp.ok) {
+                  self.lastPing = { ok: false, hostname: '', version: '', revision: '', error: 'HTTP ' + resp.status + ' from /api/backendinfo' };
+                  return;
+                }
+                return resp.json().then(function(info) {
+                  self.lastPing = {
+                    ok: true,
+                    hostname: info.hostname || '',
+                    version: info.version || '',
+                    revision: info.revision || '',
+                    error: ''
+                  };
+                });
+              })
+              .catch(function(error) {
+                self.lastPing = { ok: false, hostname: '', version: '', revision: '', error: '' + error };
+              });
+          },
           postBackend: function() {
             var self = this;
             self.echoText = '';
@@ -115,23 +139,7 @@ data:
             })
             .then(function(json) {
               self.echoText = Array.isArray(json) ? json.join(' | ') : JSON.stringify(json);
-              return fetch("/api/backendinfo", { method: "GET" });
-            })
-            .then(function(resp) {
-              if (!resp) return;
-              if (!resp.ok) {
-                self.lastPing = { ok: false, hostname: '', version: '', revision: '', error: 'HTTP ' + resp.status + ' from /api/backendinfo' };
-                return;
-              }
-              return resp.json().then(function(info) {
-                self.lastPing = {
-                  ok: true,
-                  hostname: info.hostname || '',
-                  version: info.version || '',
-                  revision: info.revision || '',
-                  error: ''
-                };
-              });
+              return self.getBackendInfo();
             })
             .catch(function (error) {
               self.lastPing = { ok: false, hostname: '', version: '', revision: '', error: '' + error };

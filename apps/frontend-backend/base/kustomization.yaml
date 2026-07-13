@@ -4,11 +4,19 @@ kind: Kustomization
 resources:
   - backend/deployment.yaml
   - backend/service.yaml
-  - frontend/configmap-assets.yaml
   - frontend/configmap-ui.yaml
   - frontend/configmap-nginx.yaml
   - frontend/configmap-backendinfo-checker.yaml
   - frontend/deployment.yaml
   - frontend/service.yaml
   - frontend/route.yaml
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+secretGenerator:
+  - name: frontend-assets
+    namespace: frontend
+    files:
+      - frontend/assets/cuddle.gif
 

@@ -22,8 +22,8 @@ spec:
           configMap:
             name: frontend-ui
         - name: assets
-          configMap:
-            name: frontend-assets
+          secret:
+            secretName: frontend-assets
         - name: nginx-conf
           configMap:
             name: frontend-nginx-conf
