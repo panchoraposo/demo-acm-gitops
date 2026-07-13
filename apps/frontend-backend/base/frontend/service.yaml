@@ -8,6 +8,6 @@ spec:
     app.kubernetes.io/name: frontend
   ports:
     - name: http
-      port: 9898
+      port: 8080
       targetPort: http
 

@@ -4,6 +4,9 @@ kind: Kustomization
 resources:
   - backend/deployment.yaml
   - backend/service.yaml
+  - frontend/configmap-ui.yaml
+  - frontend/configmap-nginx.yaml
+  - frontend/configmap-backendinfo-checker.yaml
   - frontend/deployment.yaml
   - frontend/service.yaml
   - frontend/route.yaml

@@ -7,7 +7,7 @@ spec:
   template:
     spec:
       containers:
-        - name: frontend
+        - name: podinfo
           env:
             - name: PODINFO_UI_MESSAGE
               value: "West Cluster"
