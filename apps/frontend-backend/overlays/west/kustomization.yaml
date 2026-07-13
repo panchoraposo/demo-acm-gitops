@@ -6,4 +6,5 @@ resources:
 
 patches:
   - path: patch-cluster.yaml
+  - path: patch-assets.yaml
 

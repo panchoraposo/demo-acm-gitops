@@ -126,8 +126,8 @@ echo -n "WEST URL: " && oc --context west -n frontend get route frontend -o json
 
 Open both URLs in a browser:
 
-- On **east** the UI shows the **backend pod hostname/version** (reachable)
-- On **west** the UI shows **backend unreachable** (blocked by NetworkPolicy)
+- On **east** the UI shows the **backend pod hostname** next to the two dots under **Ping** (reachable)
+- On **west** the UI shows **blocked/unreachable** next to the dots (blocked by NetworkPolicy)
 
 Important note (Route reachability):
 

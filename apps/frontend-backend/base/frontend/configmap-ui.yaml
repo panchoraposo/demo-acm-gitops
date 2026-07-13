@@ -38,22 +38,23 @@ data:
                   Ping
                 </v-btn>
 
-                <v-card outlined color="transparent" class="mt-3" style="min-width: 360px; max-width: 560px;">
-                  <v-card-text class="white--text">
-                    <div class="subtitle-1 mb-1"><b>Last backend pod</b></div>
-                    <div v-if="lastPing.ok === true">
-                      <div><b>${ lastPing.hostname }</b></div>
-                      <div class="caption">version ${ lastPing.version } · revision ${ lastPing.revision }</div>
+                <v-layout column align-center justify-center class="mt-3">
+                  <v-layout row align-center justify-center>
+                    <v-icon :color="lastPing.ok === true ? 'green' : (lastPing.ok === false ? 'red' : 'grey')">lens</v-icon>
+                    <v-icon class="ml-2" :color="lastPing.ok === true ? 'green' : (lastPing.ok === false ? 'red' : 'grey')">lens</v-icon>
+
+                    <div class="ml-3 subtitle-1" v-if="lastPing.ok === true">
+                      <b>${ lastPing.hostname }</b>
                     </div>
-                    <div v-else-if="lastPing.ok === false">
-                      <div><b>blocked/unreachable</b></div>
-                      <div class="caption">${ lastPing.error }</div>
+                    <div class="ml-3 subtitle-1" v-else-if="lastPing.ok === false">
+                      <b>blocked/unreachable</b>
                     </div>
-                    <div v-else class="caption">
-                      Click <b>Ping</b> to test frontend → backend connectivity.
-                    </div>
-                  </v-card-text>
-                </v-card>
+                  </v-layout>
+
+                  <div v-if="lastPing.ok === false" class="caption white--text mt-1">
+                    ${ lastPing.error }
+                  </div>
+                </v-layout>
               </v-layout>
           </section>
         </v-content>
