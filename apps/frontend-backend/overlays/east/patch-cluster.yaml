@@ -7,8 +7,10 @@ spec:
   template:
     spec:
       containers:
-        - name: checker
+        - name: frontend
           env:
-            - name: CLUSTER_NAME
-              value: "east"
+            - name: PODINFO_UI_MESSAGE
+              value: "East Cluster"
+            - name: PODINFO_UI_COLOR
+              value: "#0B7285"
 

@@ -5,6 +5,6 @@ resources:
   - ../../base
 
 images:
-  - name: registry.access.redhat.com/ubi9/nginx-124
+  - name: ghcr.io/stefanprodan/podinfo
     newTag: latest
 

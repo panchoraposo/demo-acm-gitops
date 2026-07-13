@@ -17,60 +17,33 @@ spec:
         app.kubernetes.io/name: frontend
         app.kubernetes.io/part-of: demo-fb
     spec:
-      securityContext:
-        seccompProfile:
-          type: RuntimeDefault
       containers:
-        - name: nginx
-          image: registry.access.redhat.com/ubi9/nginx-124:1
-          imagePullPolicy: IfNotPresent
-          command: ["/usr/libexec/s2i/run"]
-          ports:
-            - name: http
-              containerPort: 8080
-          volumeMounts:
-            - name: site
-              mountPath: /opt/app-root/src/index.html
-              subPath: index.html
-              readOnly: true
-            - name: nginx-conf
-              mountPath: /opt/app-root/etc/nginx.default.d/demo.conf
-              subPath: demo.conf
-              readOnly: true
-          securityContext:
-            allowPrivilegeEscalation: false
-            runAsNonRoot: true
-            capabilities:
-              drop: ["ALL"]
-        - name: checker
-          image: registry.access.redhat.com/ubi9/python-312:1
+        - name: frontend
+          image: ghcr.io/stefanprodan/podinfo:6.14.0
           imagePullPolicy: IfNotPresent
           env:
-            - name: CLUSTER_NAME
+            - name: PODINFO_UI_MESSAGE
               value: "unknown"
-            - name: BACKEND_URL
-              value: "http://backend.backend.svc:8080/"
-          command: ["python", "/opt/checker/checker.py"]
+            - name: PODINFO_UI_COLOR
+              value: "#34577c"
+            - name: PODINFO_BACKEND_URL
+              value: "http://backend.backend.svc:9898/"
           ports:
-            - name: api
-              containerPort: 9000
-          volumeMounts:
-            - name: checker
-              mountPath: /opt/checker/checker.py
-              subPath: checker.py
-              readOnly: true
+            - name: http
+              containerPort: 9898
           securityContext:
             allowPrivilegeEscalation: false
-            runAsNonRoot: true
             capabilities:
               drop: ["ALL"]
-      volumes:
-        - name: site
-          configMap:
-            name: frontend-site
-        - name: nginx-conf
-          configMap:
-            name: frontend-nginx-conf
-        - name: checker
-          configMap:
-            name: frontend-checker
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 3
+            timeoutSeconds: 2
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 2
+            timeoutSeconds: 2

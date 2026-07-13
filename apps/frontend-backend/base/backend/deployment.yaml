@@ -19,13 +19,24 @@ spec:
     spec:
       containers:
         - name: backend
-          image: registry.access.redhat.com/ubi9/python-312:1
+          image: ghcr.io/stefanprodan/podinfo:6.14.0
           imagePullPolicy: IfNotPresent
-          command: ["python", "-m", "http.server", "8080"]
           ports:
             - name: http
-              containerPort: 8080
+              containerPort: 9898
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop: ["ALL"]
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 3
+            timeoutSeconds: 2
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 2
+            timeoutSeconds: 2
