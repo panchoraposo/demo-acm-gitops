@@ -5,10 +5,23 @@ This runbook demonstrates how to use **OpenShift GitOps/ArgoCD** as the Git-driv
 ## Prerequisites
 
 - `oc` contexts available: `acm`, `east`, `west`
+- If you have other contexts (for example `accsa`), **do not use them** for this demo.
 - `east` and `west` are imported in ACM (ManagedCluster is `Available=True`)
 - Console banners exist (local configuration on each cluster):
   - `East Cluster`
   - `West Cluster`
+
+### Safety pre-flight (avoid mixing environments)
+
+Run this before the demo to make sure you're targeting the right clusters:
+
+```bash
+oc --context acm whoami --show-server
+oc --context east whoami --show-server
+oc --context west whoami --show-server
+```
+
+All commands in this runbook explicitly include `--context` so you don’t accidentally apply anything to a different cluster.
 
 ## 1) Bootstrap GitOps on the hub (one time)
 

@@ -4,6 +4,9 @@ set -euo pipefail
 CTX_HUB="${CTX_HUB:-acm}"
 ARGO_NS="${ARGO_NS:-openshift-gitops}"
 
+echo "Using contexts: hub=$CTX_HUB east=${CTX_EAST:-east} west=${CTX_WEST:-west}"
+echo "Safety: this script only registers east/west into ArgoCD."
+
 register() {
   local cluster_name="$1"
   local ctx="$2"
@@ -65,8 +68,8 @@ YAML
   echo "OK: cluster secret created/updated: $ARGO_NS/cluster-$cluster_name"
 }
 
-register east east
-register west west
+register east "${CTX_EAST:-east}"
+register west "${CTX_WEST:-west}"
 
 echo
 echo "Next: verify ArgoCD sees clusters:"
