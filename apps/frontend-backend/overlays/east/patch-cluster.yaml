@@ -12,5 +12,5 @@ spec:
             - name: PODINFO_UI_MESSAGE
               value: "East Cluster"
             - name: PODINFO_UI_COLOR
-              value: "#0B7285"
+              value: "#077286"
 

@@ -12,5 +12,5 @@ spec:
             - name: PODINFO_UI_MESSAGE
               value: "West Cluster"
             - name: PODINFO_UI_COLOR
-              value: "#A61E4D"
+              value: "#A71F4D"
 
