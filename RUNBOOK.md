@@ -126,8 +126,8 @@ echo -n "WEST URL: " && oc --context west -n frontend get route frontend -o json
 
 Open both URLs in a browser:
 
-- On **east** the UI shows **backend reachable** and `/api/check` returns `"ok": true`
-- On **west** the UI shows **backend blocked** and `/api/check` returns `"ok": false`
+- On **east** the UI shows the **backend pod hostname/version** (reachable)
+- On **west** the UI shows **backend unreachable** (blocked by NetworkPolicy)
 
 Important note (Route reachability):
 
@@ -146,8 +146,11 @@ Optional CLI verification (without a browser):
 EAST_HOST=$(oc --context east -n frontend get route frontend -o jsonpath='{.spec.host}')
 WEST_HOST=$(oc --context west -n frontend get route frontend -o jsonpath='{.spec.host}')
 
-curl -k -s --max-time 10 "https://$EAST_HOST/api/check" | rg -n '"cluster"|"ok"'
-curl -k -s --max-time 10 "https://$WEST_HOST/api/check" | rg -n '"cluster"|"ok"'
+echo "EAST backend info:" && curl -k -s --max-time 10 "https://$EAST_HOST/api/backendinfo" | rg -n '"hostname"|"version"'
+echo "WEST backend info:" && curl -k -s --max-time 10 "https://$WEST_HOST/api/backendinfo" | rg -n '"error"|"detail"|"backendInfoUrl"'
+
+echo "EAST ping:" && curl -k -s --max-time 10 -H 'Content-Type: application/json' -d '{"random":1}' "https://$EAST_HOST/api/echo"
+echo "WEST ping:" && curl -k -s --max-time 10 -H 'Content-Type: application/json' -d '{"random":1}' "https://$WEST_HOST/api/echo" || true
 ```
 
 Wait for pods:
@@ -164,13 +167,13 @@ Connectivity test using Python (no curl needed):
 ```bash
 # EAST: should succeed
 POD_EAST="$(oc --context east -n frontend get pod -l app.kubernetes.io/name=frontend -o jsonpath='{.items[0].metadata.name}')"
-oc --context east -n frontend exec "$POD_EAST" -- \
-  python -c 'import socket; s=socket.create_connection(("backend.backend.svc",8080),timeout=5); print("OK east: frontend -> backend"); s.close()'
+oc --context east -n frontend exec "$POD_EAST" -c backendinfo -- \
+  python -c 'import socket; s=socket.create_connection(("backend.backend.svc",9898),timeout=5); print("OK east: frontend -> backend"); s.close()'
 
 # WEST: should fail (timeout or connection refused)
 POD_WEST="$(oc --context west -n frontend get pod -l app.kubernetes.io/name=frontend -o jsonpath='{.items[0].metadata.name}')"
-oc --context west -n frontend exec "$POD_WEST" -- \
-  python -c 'import socket; socket.create_connection(("backend.backend.svc",8080),timeout=5); print("UNEXPECTED: west allowed")'
+oc --context west -n frontend exec "$POD_WEST" -c backendinfo -- \
+  python -c 'import socket; socket.create_connection(("backend.backend.svc",9898),timeout=5); print(\"UNEXPECTED: west allowed\")'
 ```
 
 ## 6) Policy guardrail: block images using :latest (show the failure, then fix)
