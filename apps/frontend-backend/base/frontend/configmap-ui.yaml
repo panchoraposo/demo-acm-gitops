@@ -17,34 +17,18 @@ data:
       <link href="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css" rel="stylesheet">
       <style>
         [v-cloak] { display: none; }
-        .v-application .v-parallax { height: 100vh !important; }
+        html, body { height: 100%; margin: 0; }
       </style>
     </head>
     <body>
     <div id="app" v-cloak>
       <v-app dark>
         <v-content>
-          <section>
-            <v-parallax id="parallax-hero" :style="cuddleStyle" src="https://upload.wikimedia.org/wikipedia/commons/c/ca/1x1.png">
-              <v-layout column align-center justify-center class="white--text">
+          <section :style="cuddleStyle">
+              <v-layout column align-center justify-center class="white--text" style="min-height: 100vh;">
                 <img :src="info.logo" height="350">
                 <h1 class="white--text mb-2 display-1 text-xs-center">${ info.message }</h1>
                 <div class="subheading mb-2 text-xs-center">Served by <b>${ info.hostname }</b></div>
-
-                <v-card outlined color="transparent" class="mt-3" style="min-width: 360px; max-width: 520px;">
-                  <v-card-text class="white--text">
-                    <div class="subtitle-1 mb-1"><b>Backend pod info</b></div>
-                    <div v-if="backend.ok">
-                      <div>Hostname: <b>${ backend.info.hostname }</b></div>
-                      <div>Version: <b>${ backend.info.version }</b></div>
-                      <div class="caption">Revision: ${ backend.info.revision }</div>
-                    </div>
-                    <div v-else>
-                      <div>Status: <b>unreachable</b></div>
-                      <div class="caption">${ backend.error }</div>
-                    </div>
-                  </v-card-text>
-                </v-card>
 
                 <v-btn class="red darken-2 mt-5" dark large @click="postBackend()">
                   <v-badge left color="red">
@@ -54,18 +38,23 @@ data:
                   Ping
                 </v-btn>
 
-                <div v-if="echoText" class="mt-3 caption" style="max-width: 640px; text-align: center;">
-                  ${ echoText }
-                </div>
-
-                <template>
-                  <v-timeline>
-                    <v-timeline-item :color="tlColor1"><h3>${ tlName1 }</h3></v-timeline-item>
-                    <v-timeline-item :color="tlColor2"><h3 slot="opposite">${ tlName2 }</h3></v-timeline-item>
-                  </v-timeline>
-                </template>
+                <v-card outlined color="transparent" class="mt-3" style="min-width: 360px; max-width: 560px;">
+                  <v-card-text class="white--text">
+                    <div class="subtitle-1 mb-1"><b>Last backend pod</b></div>
+                    <div v-if="lastPing.ok === true">
+                      <div><b>${ lastPing.hostname }</b></div>
+                      <div class="caption">version ${ lastPing.version } · revision ${ lastPing.revision }</div>
+                    </div>
+                    <div v-else-if="lastPing.ok === false">
+                      <div><b>blocked/unreachable</b></div>
+                      <div class="caption">${ lastPing.error }</div>
+                    </div>
+                    <div v-else class="caption">
+                      Click <b>Ping</b> to test frontend → backend connectivity.
+                    </div>
+                  </v-card-text>
+                </v-card>
               </v-layout>
-            </v-parallax>
           </section>
 
           <v-footer class="blue darken-2">
@@ -93,24 +82,16 @@ data:
         data: function() {
           return {
             info: {},
-            backend: { ok: false, info: {}, error: 'loading...' },
             timer: '',
-            backendTimer: '',
             echoText: '',
             pings: 0,
-            calls: 0,
-            tlName1: '',
-            tlColor1: 'grey',
-            tlName2: '',
-            tlColor2: 'grey',
-            cuddleStyle: { backgroundColor: '#34577c' },
+            lastPing: { ok: null, hostname: '', version: '', revision: '', error: '' },
+            cuddleStyle: { backgroundColor: '#34577c', minHeight: '100vh' },
           }
         },
         created: function() {
           this.getInfo();
-          this.getBackendInfo();
           this.timer = setInterval(this.getInfo, 3000);
-          this.backendTimer = setInterval(this.getBackendInfo, 3000);
         },
         methods: {
           getInfo: function() {
@@ -120,43 +101,17 @@ data:
             xhr.onload = function () {
               const data = JSON.parse(xhr.responseText);
               self.info = data;
-              self.cuddleStyle = { backgroundColor: data.color || '#34577c' };
+              self.cuddleStyle = { backgroundColor: (data.color || '#34577c'), minHeight: '100vh' };
               document.title = data.hostname || 'podinfo';
-              const verColor = (parseInt((data.version || '0').split('.').reverse()[0], 10) % 2 === 0) ? 'blue' : 'green';
-              if ((self.calls % 2) === 0) {
-                self.tlColor2 += ' lighten-2';
-                self.tlColor1 = verColor;
-                self.tlName1 = data.version || '';
-              } else {
-                self.tlColor1 += ' lighten-2';
-                self.tlColor2 = verColor;
-                self.tlName2 = data.version || '';
-              }
-              self.calls++;
             };
             xhr.onerror = function() {
               console.log(xhr.responseText || 'Network request failed');
             };
             xhr.send();
           },
-          getBackendInfo: function() {
-            const xhr = new XMLHttpRequest();
-            let self = this;
-            xhr.open('GET', "/api/backendinfo");
-            xhr.onload = function () {
-              if (xhr.status >= 200 && xhr.status < 300) {
-                self.backend = { ok: true, info: JSON.parse(xhr.responseText), error: '' };
-              } else {
-                self.backend = { ok: false, info: {}, error: 'HTTP ' + xhr.status + ' from /api/backendinfo' };
-              }
-            };
-            xhr.onerror = function() {
-              self.backend = { ok: false, info: {}, error: 'Network error calling /api/backendinfo (likely blocked by NetworkPolicy)' };
-            };
-            xhr.send();
-          },
           postBackend: function() {
             var self = this;
+            self.echoText = '';
             fetch("/api/echo", {
               method: 'post',
               headers: {
@@ -171,11 +126,26 @@ data:
             })
             .then(function(json) {
               self.echoText = Array.isArray(json) ? json.join(' | ') : JSON.stringify(json);
-              self.getBackendInfo();
+              return fetch("/api/backendinfo", { method: "GET" });
+            })
+            .then(function(resp) {
+              if (!resp) return;
+              if (!resp.ok) {
+                self.lastPing = { ok: false, hostname: '', version: '', revision: '', error: 'HTTP ' + resp.status + ' from /api/backendinfo' };
+                return;
+              }
+              return resp.json().then(function(info) {
+                self.lastPing = {
+                  ok: true,
+                  hostname: info.hostname || '',
+                  version: info.version || '',
+                  revision: info.revision || '',
+                  error: ''
+                };
+              });
             })
             .catch(function (error) {
-              self.echoText = 'Ping failed: ' + error;
-              self.getBackendInfo();
+              self.lastPing = { ok: false, hostname: '', version: '', revision: '', error: '' + error };
             });
           }
         }
