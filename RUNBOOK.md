@@ -1,19 +1,21 @@
-# Runbook (high-impact): Git change → Argo Sync → ACM governance + app delivery (east/west)
+# Runbook: validate demo + execute step-by-step (GitOps → ACM governance → east/west behavior)
 
-This runbook demonstrates how to use **OpenShift GitOps/ArgoCD** as the Git-driven delivery mechanism on the hub, while **ACM Governance** enforces policies and reports compliance across managed clusters (**east** and **west**).
+This runbook is the **demo script** and also the **validation checklist**. It shows how:
+
+- **GitOps (ArgoCD on the hub)** delivers desired state from Git
+- **ACM Governance** enforces policies, reports compliance, and remediates (where enabled)
+- **east vs west** behave differently due to policy-driven NetworkPolicies and guardrails
 
 ## Prerequisites
 
 - `oc` contexts available: `acm`, `east`, `west`
-- If you have other contexts (for example `accsa`), **do not use them** for this demo.
-- `east` and `west` are imported in ACM (ManagedCluster is `Available=True`)
-- Console banners exist (local configuration on each cluster):
+- Don’t use any other cluster contexts during the demo.
+- `east` and `west` are imported into ACM and `Available=True`
+- Console banners are configured locally (not via ACM Policies):
   - `East Cluster`
   - `West Cluster`
 
-### Safety pre-flight (avoid mixing environments)
-
-Run this before the demo to make sure you're targeting the right clusters:
+## 0) Safety pre-flight
 
 ```bash
 oc --context acm whoami --show-server
@@ -21,164 +23,202 @@ oc --context east whoami --show-server
 oc --context west whoami --show-server
 ```
 
-All commands in this runbook explicitly include `--context` so you don’t accidentally apply anything to a different cluster.
+## 1) Validate GitOps on the hub (ArgoCD)
 
-## 1) Bootstrap GitOps on the hub (one time)
-
-Install OpenShift GitOps (operator + ArgoCD instance in the hub):
+ArgoCD runs on the **hub** (`acm`) and syncs this repo.
 
 ```bash
-oc --context acm apply -k bootstrap/gitops-operator
+oc --context acm -n openshift-gitops get applications.argoproj.io \
+  acm-governance cluster-apps fb-east fb-west -o wide
+
+oc --context acm -n openshift-gitops get applicationsets.argoproj.io frontend-backend
 ```
 
-Create the ArgoCD Applications that sync:
-- `acm/` (governance-as-code)
-- `gitops/` (ApplicationSets for app delivery)
+Expected:
+- All apps are `Synced` and `Healthy`
 
-```bash
-oc --context acm apply -k bootstrap/argocd-app
-```
-
-Verify both apps exist:
-
-```bash
-oc --context acm -n openshift-gitops get applications.argoproj.io acm-governance -o wide
-oc --context acm -n openshift-gitops get applications.argoproj.io cluster-apps -o wide
-```
-
-## 2) Target clusters by name (east/west)
-
-Label each managed cluster into its matching cluster set:
-
-```bash
-oc --context acm label managedcluster east cluster.open-cluster-management.io/clusterset=east --overwrite
-oc --context acm label managedcluster west cluster.open-cluster-management.io/clusterset=west --overwrite
-```
-
-## 3) Baseline demo expectations
-
-Current governance policies:
-
-- `policy-baseline-east` (**inform**): should report **NonCompliant** until you flip it to enforce
-- `policy-baseline-west` (**enforce**): should remediate and become **Compliant**
-- `policy-app-east` / `policy-app-west` (**enforce**): creates namespaces (`frontend`, `backend`) with labels, quotas, limits and per-cluster NetworkPolicies
-- `policy-no-latest` (**enforce**): blocks workloads using `:latest` (native `ValidatingAdmissionPolicy`)
-
-Check in ACM (hub):
+## 2) Validate ACM governance status (hub)
 
 ```bash
 oc --context acm -n open-cluster-management-policies get policy -o wide
 ```
 
-Validate effects in managed clusters:
+Expected (key talking points):
+- `policy-baseline-east` is **inform + NonCompliant** (it reports drift; it does not remediate)
+- `policy-baseline-west` is **enforce + Compliant** (it remediates)
+- `policy-app-east` and `policy-app-west` are **Compliant**
+- `policy-no-latest` is **Compliant** (guardrail active)
+
+## 3) Validate namespace governance (east/west)
+
+These namespaces are delivered by policy:
 
 ```bash
-oc --context west get ns demo-infra
-oc --context west -n demo-infra get resourcequota,limitrange,networkpolicy,rolebinding
-
-oc --context east get ns demo-infra || true
+for ctx in east west; do
+  echo "=== $ctx ==="
+  oc --context $ctx get ns frontend backend -o jsonpath='{range .items[*]}{.metadata.name}{" labels="}{.metadata.labels}{"\n"}{end}'
+  oc --context $ctx -n frontend get resourcequota,limitrange
+  oc --context $ctx -n backend get resourcequota,limitrange
+done
 ```
 
-## 4) App delivery via GitOps (ArgoCD to east/west)
+Fish equivalent:
 
-### 4.1 Register managed clusters in ArgoCD (one time)
-
-ArgoCD runs on the hub. To deploy apps to managed clusters, register `east` and `west` as ArgoCD destinations:
-
-```bash
-chmod +x hack/register-argocd-clusters.sh
-./hack/register-argocd-clusters.sh
+```fish
+for ctx in east west
+  echo "=== $ctx ==="
+  oc --context $ctx get ns frontend backend -o jsonpath='{range .items[*]}{.metadata.name}{" labels="}{.metadata.labels}{"\n"}{end}'
+  oc --context $ctx -n frontend get resourcequota,limitrange
+  oc --context $ctx -n backend get resourcequota,limitrange
+end
 ```
 
-Confirm ArgoCD cluster secrets exist on the hub:
+## 4) Demo moment: NetworkPolicy impact (east vs west)
 
-```bash
-oc --context acm -n openshift-gitops get secret -l argocd.argoproj.io/secret-type=cluster
-```
+The app is the same, but policies make behavior different:
 
-### 4.2 Observe the ApplicationSet that deploys the demo app
+- **east**: frontend → backend **allowed**
+- **west**: frontend → backend **blocked**
 
-The repo contains an `ApplicationSet` that generates one ArgoCD Application per cluster:
-
-- `fb-east`
-- `fb-west`
-
-Check from the hub:
-
-```bash
-oc --context acm -n openshift-gitops get applicationsets.argoproj.io frontend-backend
-oc --context acm -n openshift-gitops get applications.argoproj.io | rg -n '^fb-'
-```
-
-## 5) NetworkPolicy impact test (east vs west)
-
-The same app is deployed, but policies make network behavior different:
-
-- `east`: **frontend → backend allowed**
-- `west`: **frontend → backend denied** (deny-ingress + allow-same-namespace)
-
-Get the public URLs (OpenShift Routes):
+### 4.1 Open the frontends
 
 ```bash
 echo -n "EAST URL: " && oc --context east -n frontend get route frontend -o jsonpath='https://{.spec.host}{"\n"}'
 echo -n "WEST URL: " && oc --context west -n frontend get route frontend -o jsonpath='https://{.spec.host}{"\n"}'
 ```
 
-Open both URLs in a browser:
+Expected:
+- Before clicking **Ping**, the UI does **not** show backend status.
+- After clicking **Ping**:
+  - **east** shows a **green selected indicator** and the **backend pod name**
+  - **west** shows a **red selected indicator** and **blocked**
 
-- On **east** the UI shows the **backend pod hostname** next to the two dots under **Ping** (reachable)
-- On **west** the UI shows **blocked/unreachable** next to the dots (blocked by NetworkPolicy)
-
-Important note (Route reachability):
-
-- Since `frontend` uses **default-deny ingress**, you must allow traffic from the OpenShift router namespace.
-- This demo includes `NetworkPolicy/allow-from-openshift-ingress` in `frontend` to permit traffic from `openshift-ingress`.
-- If the Route times out, confirm the policy exists:
+### 4.2 Prove scaling changes the backend pod name (east)
 
 ```bash
-oc --context east -n frontend get networkpolicy allow-from-openshift-ingress
-oc --context west -n frontend get networkpolicy allow-from-openshift-ingress
+oc --context east -n backend scale deploy/backend --replicas=5
+oc --context east -n backend rollout status deploy/backend --timeout=180s
 ```
 
-Optional CLI verification (without a browser):
+Now click **Ping** multiple times in the **east** UI.
+
+Expected:
+- The backend pod name **changes between clicks** (random backend pod selection)
+
+Scale back:
+
+```bash
+oc --context east -n backend scale deploy/backend --replicas=1
+oc --context east -n backend rollout status deploy/backend --timeout=180s
+```
+
+### 4.3 Optional CLI verification (no browser)
 
 ```bash
 EAST_HOST=$(oc --context east -n frontend get route frontend -o jsonpath='{.spec.host}')
 WEST_HOST=$(oc --context west -n frontend get route frontend -o jsonpath='{.spec.host}')
 
-echo "EAST backend info:" && curl -k -s --max-time 10 "https://$EAST_HOST/api/backendinfo" | rg -n '"hostname"|"version"'
-echo "WEST backend info:" && curl -k -s --max-time 10 "https://$WEST_HOST/api/backendinfo" | rg -n '"error"|"detail"|"backendInfoUrl"'
-
-echo "EAST ping:" && curl -k -s --max-time 10 -H 'Content-Type: application/json' -d '{"random":1}' "https://$EAST_HOST/api/echo"
-echo "WEST ping:" && curl -k -s --max-time 10 -H 'Content-Type: application/json' -d '{"random":1}' "https://$WEST_HOST/api/echo" || true
+curl -k -s --max-time 10 "https://$EAST_HOST/api/backendinfo" | python3 -c 'import sys,json; print(json.load(sys.stdin)["hostname"])'
+curl -k -s --max-time 10 "https://$WEST_HOST/api/backendinfo" | python3 -c 'import sys; print(sys.stdin.read().strip())'
 ```
 
-Wait for pods:
+## 5) Validate NetworkPolicies (east allows, west blocks)
 
 ```bash
-oc --context east -n frontend rollout status deploy/frontend
-oc --context east -n backend rollout status deploy/backend
-oc --context west -n frontend rollout status deploy/frontend
-oc --context west -n backend rollout status deploy/backend
+for ctx in east west; do
+  echo "=== $ctx netpols ==="
+  oc --context $ctx -n frontend get netpol
+  oc --context $ctx -n backend get netpol
+done
 ```
 
-Connectivity test using Python (no curl needed):
+Fish equivalent:
+
+```fish
+for ctx in east west
+  echo "=== $ctx netpols ==="
+  oc --context $ctx -n frontend get netpol
+  oc --context $ctx -n backend get netpol
+end
+```
+
+Connectivity check from an existing container (no new pods needed):
 
 ```bash
-# EAST: should succeed
-POD_EAST="$(oc --context east -n frontend get pod -l app.kubernetes.io/name=frontend -o jsonpath='{.items[0].metadata.name}')"
-oc --context east -n frontend exec "$POD_EAST" -c backendinfo -- \
-  python -c 'import socket; s=socket.create_connection(("backend.backend.svc",9898),timeout=5); print("OK east: frontend -> backend"); s.close()'
-
-# WEST: should fail (timeout or connection refused)
-POD_WEST="$(oc --context west -n frontend get pod -l app.kubernetes.io/name=frontend -o jsonpath='{.items[0].metadata.name}')"
-oc --context west -n frontend exec "$POD_WEST" -c backendinfo -- \
-  python -c 'import socket; socket.create_connection(("backend.backend.svc",9898),timeout=5); print(\"UNEXPECTED: west allowed\")'
+for ctx in east west; do
+  echo "=== $ctx frontend -> backend ==="
+  POD="$(oc --context $ctx -n frontend get pod -l app.kubernetes.io/name=frontend -o jsonpath='{.items[0].metadata.name}')"
+  if host="$(oc --context $ctx -n frontend exec "$POD" -c backendinfo -- python3 -c 'import json,urllib.request; print(json.load(urllib.request.urlopen(\"http://backend.backend.svc:9898/api/info\",timeout=2))[\"hostname\"])' 2>/dev/null)"; then
+    echo "OK backend=$host"
+  else
+    echo "FAIL (expected on west)"
+  fi
+done
 ```
 
-## 6) Policy guardrail: block images using :latest (show the failure, then fix)
+Fish equivalent:
 
-### 6.1 Trigger a Git change that deploys a workload using `:latest` (expected to be denied)
+```fish
+for ctx in east west
+  echo "=== $ctx frontend -> backend ==="
+  set POD (oc --context $ctx -n frontend get pod -l app.kubernetes.io/name=frontend -o jsonpath='{.items[0].metadata.name}')
+  set host (oc --context $ctx -n frontend exec $POD -c backendinfo -- python3 -c 'import json,urllib.request; print(json.load(urllib.request.urlopen("http://backend.backend.svc:9898/api/info",timeout=2))["hostname"])' 2>/dev/null)
+  if test $status -eq 0
+    echo "OK backend=$host"
+  else
+    echo "FAIL (expected on west)"
+  end
+end
+```
+
+Expected:
+- **east** prints `OK`
+- **west** prints `FAIL ... timed out`
+
+## 6) Guardrail demos (ACM governance)
+
+### 6.1 Exceed the desired footprint and watch ACM remediate (replicas)
+
+This is the “ACM keeps the cluster safe” moment: a Git change tries to scale the **frontend** to `replicas: 10`, but ACM enforces `replicas: 1`.
+
+**Important:** ArgoCD and ACM are both reconcilers. For this specific demo step, we temporarily disable ArgoCD self-heal to avoid a tug-of-war.
+
+1) Edit `gitops/applicationsets/frontend-backend.yaml`:
+
+- Set both elements to use `apps/frontend-backend/overlays/bad-replicas`
+- Temporarily disable self-heal:
+  - `syncPolicy.automated.selfHeal: false`
+
+Commit + push:
+
+```bash
+git add gitops/applicationsets/frontend-backend.yaml
+git commit -m "Demo: try to scale frontend beyond policy"
+git push
+```
+
+Watch:
+
+```bash
+oc --context acm -n openshift-gitops get applications.argoproj.io fb-east fb-west -o wide
+oc --context acm -n open-cluster-management-policies get policy policy-replica-guard -o wide
+
+# ACM enforces replicas back to 1 (even though Git asked for 10)
+oc --context east -n frontend get deploy frontend -o jsonpath='{.spec.replicas}{"\n"}'
+oc --context west -n frontend get deploy frontend -o jsonpath='{.spec.replicas}{"\n"}'
+```
+
+Revert the ApplicationSet back to `overlays/east` and `overlays/west` and restore `selfHeal: true`, then commit + push:
+
+```bash
+git add gitops/applicationsets/frontend-backend.yaml
+git commit -m "Fix: restore normal app overlays"
+git push
+```
+
+### 6.2 Block `:latest`
+
+#### 6.2.1 Git change (recommended for the demo narrative)
 
 Edit `gitops/applicationsets/frontend-backend.yaml` and change both cluster elements:
 
@@ -193,17 +233,17 @@ git commit -m "Demo: attempt to deploy :latest (should be denied)"
 git push
 ```
 
-Observe ArgoCD sync errors on `fb-east` / `fb-west` (Denied by admission):
+Expected:
+- Argo apps `fb-east`/`fb-west` show sync errors
+- The admission policy `disallow-latest-tag` denies the rollout
 
 ```bash
 oc --context acm -n openshift-gitops get applications.argoproj.io fb-east fb-west -o wide
-oc --context east -n frontend get rs -l app.kubernetes.io/name=frontend -o name
-oc --context east -n frontend describe rs <ONE_OF_THE_RS> | rg -n 'Denied|disallow-latest-tag|latest|FailedCreate'
 ```
 
-### 6.2 Fix by switching back to pinned tags
+#### 6.2.2 Fix (switch back to pinned tags)
 
-Revert the paths back to `overlays/east` and `overlays/west`, then commit + push:
+Revert paths back to `overlays/east` and `overlays/west`, then commit + push:
 
 ```bash
 git add gitops/applicationsets/frontend-backend.yaml
@@ -211,14 +251,47 @@ git commit -m "Fix: deploy pinned image tags"
 git push
 ```
 
-ArgoCD should converge back to `Synced`, and pods should run again.
+## 7) Governance remediation demo: flip east baseline from inform → enforce
 
-## 7) The “ACM governance Git change” moment (flip east from inform → enforce)
+Today:
+- west baseline is enforced and already remediated
+- east baseline is inform-only and intentionally NonCompliant
 
-Edit `acm/policies/baseline/policy-baseline-east.yaml`:
+### 7.1 Create a new project and watch policy drift (east)
 
-- change `spec.remediationAction: inform` to `enforce`
-- (optional) also change each embedded `ConfigurationPolicy.spec.remediationAction` to `enforce`
+This is the “new namespace” moment: you create a brand new project on **east** and ACM immediately evaluates it against the baseline policy.
+
+```bash
+# Create the project/namespace (new)
+oc --context east create ns demo-infra || true
+
+# Policy still reports drift (inform-only, so it does not remediate)
+oc --context acm -n open-cluster-management-policies get policy policy-baseline-east -o wide
+oc --context acm -n east get policy open-cluster-management-policies.policy-baseline-east -o yaml | rg -n \"NonCompliant|not found\"
+```
+
+Fish equivalent:
+
+```fish
+oc --context east create ns demo-infra; or true
+
+oc --context acm -n open-cluster-management-policies get policy policy-baseline-east -o wide
+oc --context acm -n east get policy open-cluster-management-policies.policy-baseline-east -o yaml | rg -n \"NonCompliant|not found\"
+```
+
+Show the difference:
+
+```bash
+oc --context west get ns demo-infra
+oc --context east get ns demo-infra || true
+oc --context acm -n open-cluster-management-policies get policy policy-baseline-east policy-baseline-west -o wide
+```
+
+Now flip east to enforce:
+
+1) Edit `acm/policies/baseline/policy-baseline-east.yaml`
+2) Change `spec.remediationAction: inform` → `enforce`
+3) (Optional) also change each embedded `ConfigurationPolicy.spec.remediationAction` to `enforce`
 
 Commit + push:
 
@@ -228,37 +301,24 @@ git commit -m "Enforce baseline on east"
 git push
 ```
 
-## 5) Observe ArgoCD syncing from Git
-
-Watch the ArgoCD app on the hub:
+Watch GitOps apply it:
 
 ```bash
 oc --context acm -n openshift-gitops get applications.argoproj.io acm-governance -o wide
 ```
 
-Expected:
-- Sync status becomes `Synced`
-- Health can optionally ignore ACM policy compliance (recommended for demos to keep the GitOps app green)
-
-## 6) Observe ACM compliance/remediation in east
-
-On the hub, you should see `policy-baseline-east` move toward `Compliant`:
+Then confirm remediation happened:
 
 ```bash
 oc --context acm -n open-cluster-management-policies get policy policy-baseline-east -o wide
-```
-
-On the east managed cluster, the baseline resources should now be created:
-
-```bash
 oc --context east get ns demo-infra
 oc --context east -n demo-infra get resourcequota,limitrange,networkpolicy,rolebinding
 ```
 
 ## 8) Wrap-up (talk track)
 
-- **Git is the source of truth**: a single commit changed governance intent.
-- **ArgoCD delivered both** governance + apps from Git.
-- **ACM enforced policy intent** across clusters (compliance + auto-remediation).
-- **Guardrails prevented bad deployments** (blocked `:latest`).
+- **Git is the source of truth**: policies and apps change via commits
+- **ArgoCD syncs from Git** (hub GitOps)
+- **ACM shows compliance and remediates** where enabled
+- **east/west differ by policy**, not by manual config
 

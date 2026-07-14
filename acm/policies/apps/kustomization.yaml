@@ -4,6 +4,8 @@ kind: Kustomization
 resources:
   - policy-app-east.yaml
   - policy-app-west.yaml
+  - policy-replica-guard.yaml
   - placementbinding-app-east.yaml
   - placementbinding-app-west.yaml
+  - placementbinding-replica-guard.yaml
 
