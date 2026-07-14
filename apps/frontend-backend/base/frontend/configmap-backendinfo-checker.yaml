@@ -7,7 +7,9 @@ data:
   checker.py: |
     import json
     import os
+    import random
     import socket
+    import subprocess
     import sys
     import time
     import urllib.error
@@ -19,11 +21,58 @@ data:
     LISTEN_PORT = int(os.environ.get("LISTEN_PORT", "9000"))
     TIMEOUT_SECONDS = float(os.environ.get("TIMEOUT_SECONDS", "2"))
 
+    def _resolve_random_ip(hostname: str) -> str:
+      # Resolve all A/AAAA records and pick one at random to
+      # demonstrate backend scaling (different pod IPs).
+      ips = []
+
+      # Prefer getent: it returns all A records for headless services.
+      try:
+        out = subprocess.check_output(["getent", "hosts", hostname], timeout=1).decode("utf-8", "replace")
+        for line in out.splitlines():
+          parts = line.split()
+          if parts:
+            ips.append(parts[0])
+      except Exception:
+        pass
+
+      if not ips:
+        infos = socket.getaddrinfo(hostname, None)
+        for family, _, _, _, sockaddr in infos:
+          if family == socket.AF_INET:
+            ips.append(sockaddr[0])
+          elif family == socket.AF_INET6:
+            ips.append(sockaddr[0])
+
+      # Deduplicate but keep order stable.
+      seen = set()
+      ips = [ip for ip in ips if not (ip in seen or seen.add(ip))]
+      if not ips:
+        return hostname
+      return random.choice(ips)
+
     def fetch_backend_info():
+      parsed = urllib.parse.urlparse(BACKEND_INFO_URL)
+      chosen_ip = _resolve_random_ip(parsed.hostname) if parsed.hostname else None
+      url = BACKEND_INFO_URL
+      host_header = parsed.hostname or ""
+      if chosen_ip and parsed.hostname:
+        # Replace hostname with chosen IP but preserve scheme/port/path/query.
+        netloc = chosen_ip
+        if parsed.port:
+          netloc = f"{chosen_ip}:{parsed.port}"
+        url = urllib.parse.urlunparse(
+          (parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment)
+        )
+
       req = urllib.request.Request(
-        BACKEND_INFO_URL,
+        url,
         method="GET",
-        headers={"Accept": "application/json"},
+        headers={
+          "Accept": "application/json",
+          "Connection": "close",
+          "Host": host_header,
+        },
       )
       with urllib.request.urlopen(req, timeout=TIMEOUT_SECONDS) as resp:
         body = resp.read()

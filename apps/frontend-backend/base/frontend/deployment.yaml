@@ -101,7 +101,7 @@ spec:
           imagePullPolicy: IfNotPresent
           env:
             - name: BACKEND_INFO_URL
-              value: "http://backend.backend.svc:9898/api/info"
+              value: "http://backend-headless.backend.svc:9898/api/info"
             - name: LISTEN_PORT
               value: "9000"
           ports:
