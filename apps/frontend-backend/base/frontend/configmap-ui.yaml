@@ -26,6 +26,7 @@ data:
           box-shadow: 0 6px 14px rgba(0,0,0,0.28);
           display: inline-block;
         }
+        .status-dot.unknown { background: rgba(255,255,255,0.22); }
         .status-dot.ok { background: #2e7d32; }
         .status-dot.fail { background: #c62828; }
       </style>
@@ -51,12 +52,15 @@ data:
 
                 <div class="mt-4" v-if="hasPinged">
                   <div class="d-flex align-center justify-center">
-                    <span class="status-dot" :class="lastPing.ok === true ? 'ok' : 'fail'"></span>
+                    <span class="status-dot" :class="lastPing.ok === true ? 'ok' : (lastPing.ok === false ? 'fail' : 'unknown')"></span>
                     <div class="ml-4 subtitle-1" v-if="lastPing.ok === true">
                       <b>${ lastPing.hostname }</b>
                     </div>
-                    <div class="ml-4 subtitle-1" v-else>
+                    <div class="ml-4 subtitle-1" v-else-if="lastPing.ok === false">
                       <b>blocked</b>
+                    </div>
+                    <div class="ml-4 subtitle-1" v-else-if="loading">
+                      <i>checking...</i>
                     </div>
                   </div>
                 </div>
