@@ -27,7 +27,7 @@ data:
           <v-container fluid fill-height :style="cuddleStyle" class="white--text">
             <v-row align="center" justify="center" class="text-center">
               <v-col cols="12" sm="10" md="6" lg="5">
-                <img src="/cuddle.gif" height="320" style="max-width: 100%; height: auto;">
+                <img src="/cuddle.gif" style="width: min(280px, 65vw); height: auto; max-height: 200px;">
                 <h1 class="white--text mb-2 display-1">${ info.message }</h1>
                 <div class="subheading mb-4">Served by <b>${ info.hostname }</b></div>
 
@@ -40,21 +40,17 @@ data:
                 </v-btn>
 
                 <div class="mt-4">
-                  <div class="d-flex align-center justify-center">
-                    <v-icon :color="lastPing.ok === true ? 'green' : (lastPing.ok === false ? 'red' : 'grey')">lens</v-icon>
-                    <v-icon class="ml-2" :color="lastPing.ok === true ? 'green' : (lastPing.ok === false ? 'red' : 'grey')">lens</v-icon>
-
-                    <div class="ml-3 subtitle-1" v-if="lastPing.ok === true">
-                      <b>${ lastPing.hostname }</b>
-                    </div>
-                    <div class="ml-3 subtitle-1" v-else-if="lastPing.ok === false">
-                      <b>blocked/unreachable</b>
-                    </div>
-                  </div>
-
-                  <div v-if="lastPing.ok === false" class="caption white--text mt-2">
-                    ${ lastPing.error }
-                  </div>
+                  <v-btn
+                    small
+                    depressed
+                    rounded
+                    dark
+                    :color="lastPing.ok === true ? 'green darken-1' : (lastPing.ok === false ? 'red darken-2' : 'grey darken-2')"
+                  >
+                    <span v-if="lastPing.ok === true"><b>${ lastPing.hostname }</b></span>
+                    <span v-else-if="lastPing.ok === false"><b>blocked</b></span>
+                    <span v-else><b>unknown</b></span>
+                  </v-btn>
                 </div>
               </v-col>
             </v-row>
@@ -106,13 +102,17 @@ data:
             self.loading = true;
             var ctrl = new AbortController();
             var timeout = setTimeout(function() { ctrl.abort(); }, 4000);
-            var url = "/api/backendinfo?ts=" + Date.now() + "&r=" + Math.random();
-            return fetch(url, { method: "GET", signal: ctrl.signal })
+            return fetch("/api/backendinfo", {
+              method: "GET",
+              signal: ctrl.signal,
+              cache: "no-store",
+              headers: { "X-APP": "" + Math.random() }
+            })
               .then(function(resp) {
                 clearTimeout(timeout);
                 if (!resp) return;
                 if (!resp.ok) {
-                  self.lastPing = { ok: false, hostname: '', version: '', revision: '', error: 'HTTP ' + resp.status + ' from /api/backendinfo' };
+                  self.lastPing = { ok: false, hostname: '', version: '', revision: '', error: '' };
                   return;
                 }
                 return resp.json().then(function(info) {
@@ -127,7 +127,7 @@ data:
               })
               .catch(function(error) {
                 clearTimeout(timeout);
-                self.lastPing = { ok: false, hostname: '', version: '', revision: '', error: '' + error };
+                self.lastPing = { ok: false, hostname: '', version: '', revision: '', error: '' };
               })
               .finally(function() {
                 self.loading = false;
