@@ -5,6 +5,20 @@ metadata:
   namespace: frontend
 data:
   demo.conf: |
+    location = /cuddle.gif {
+      root /opt/app-root/src;
+    }
+
+    location = / {
+      root /opt/app-root/ui;
+      try_files /index.html =404;
+    }
+
+    location / {
+      root /opt/app-root/ui;
+      try_files $uri /index.html;
+    }
+
     location = /healthz {
       access_log off;
       add_header Content-Type text/plain;
